@@ -172,6 +172,51 @@ const WORKOUT_PLAN = [
   },
 ];
 
+const DIET_PLAN = [
+  { id: "lun", title: "Lunedì", subtitle: "", meals: [
+    "Colazione: 2 uova strapazzate + 1 fetta pane integrale + frutto",
+    "Spuntino: yogurt greco + noci (15g)",
+    "Pranzo: petto di pollo (150g) + riso integrale (60g) + insalata mista",
+    "Cena: salmone al forno (150g) + patate dolci (150g) + verdure grigliate",
+  ]},
+  { id: "mar", title: "Martedì", subtitle: "", meals: [
+    "Colazione: yogurt greco + fiocchi d'avena (40g) + frutti di bosco",
+    "Spuntino: 1 frutto + mandorle (15g)",
+    "Pranzo: pasta integrale (70g) con tonno, pomodorini e olive + insalata",
+    "Cena: bistecca di manzo magra (150g) + verdure al vapore + 1 fetta pane integrale",
+  ]},
+  { id: "mer", title: "Mercoledì", subtitle: "", meals: [
+    "Colazione: 2 uova + avocado (1/4) + 1 fetta pane integrale",
+    "Spuntino: skyr o yogurt proteico",
+    "Pranzo: ceci o lenticchie (150g cotti) + cereali misti + verdure crude",
+    "Cena: petto di tacchino (150g) ai ferri + zucchine e melanzane grigliate",
+  ]},
+  { id: "gio", title: "Giovedì", subtitle: "", meals: [
+    "Colazione: porridge avena (40g) + latte/bevanda vegetale + miele (1 cucchiaino)",
+    "Spuntino: ricotta (100g) + un frutto",
+    "Pranzo: riso basmati (60g crudo) + gamberi o pesce bianco (150g) + verdure saltate",
+    "Cena: omelette (3 uova) con spinaci e formaggio leggero + insalata",
+  ]},
+  { id: "ven", title: "Venerdì", subtitle: "", meals: [
+    "Colazione: yogurt greco + granola homemade (poco zucchero) + frutto",
+    "Spuntino: hummus + carote/finocchio crudi",
+    "Pranzo: pasta integrale (70g) al pesto con pollo a cubetti + insalata",
+    "Cena: pesce azzurro (150g) + patate al forno (150g) + verdure",
+  ]},
+  { id: "sab", title: "Sabato", subtitle: "Pranzo libero/sociale", meals: [
+    "Colazione: pancake proteici (uova + farina d'avena + banana)",
+    "Spuntino: frutta secca (20g)",
+    "Pranzo: libero — proteine + verdure come priorità",
+    "Cena: bistecca o pesce + insalatona abbondante + 1 frutto",
+  ]},
+  { id: "dom", title: "Domenica", subtitle: "", meals: [
+    "Colazione: uova + pane integrale + spremuta",
+    "Spuntino: yogurt greco",
+    "Pranzo: legumi (farro e ceci, 200g) + verdure di stagione",
+    "Cena: leggera — minestrone di verdure + petto di pollo o tofu (120g)",
+  ]},
+];
+
 // ---------------------------------------------------------------------------
 // Utility di calcolo
 // ---------------------------------------------------------------------------
@@ -219,6 +264,8 @@ function getWeekKey(date = new Date()) {
 let profile = null;
 let entries = [];
 let workouts = {};
+let dietLog = {};
+let expandedDietDay = null;
 let showSettings = false;
 let range = 30;
 let weightInputVal = "83";
@@ -238,6 +285,7 @@ function loadData() {
       profile = parsed.profile || null;
       entries = parsed.entries || [];
       workouts = parsed.workouts || {};
+      dietLog = parsed.dietLog || {};
       if (profile) {
         formHeight = String(profile.height);
         formAge = String(profile.age);
@@ -251,7 +299,7 @@ function loadData() {
 }
 function saveData() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ profile, entries, workouts }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ profile, entries, workouts, dietLog }));
     saveError = "";
   } catch (e) {
     saveError = "Errore di salvataggio, riprova.";
@@ -291,6 +339,7 @@ function handleReset() {
   profile = null;
   entries = [];
   workouts = {};
+  dietLog = {};
   saveData();
   render();
 }
@@ -298,6 +347,13 @@ function toggleWorkoutDay(dayId) {
   const weekKey = getWeekKey();
   const currentWeek = workouts[weekKey] || {};
   workouts[weekKey] = { ...currentWeek, [dayId]: !currentWeek[dayId] };
+  saveData();
+  render();
+}
+function toggleDietDay(dayId) {
+  const weekKey = getWeekKey();
+  const currentWeek = dietLog[weekKey] || {};
+  dietLog[weekKey] = { ...currentWeek, [dayId]: !currentWeek[dayId] };
   saveData();
   render();
 }
@@ -381,6 +437,8 @@ function renderDashboard() {
   const currentWeekKey = getWeekKey();
   const currentWeekWorkouts = workouts[currentWeekKey] || {};
   const completedCount = WORKOUT_PLAN.filter((d) => currentWeekWorkouts[d.id]).length;
+  const currentWeekDiet = dietLog[currentWeekKey] || {};
+  const dietCompletedCount = DIET_PLAN.filter((d) => currentWeekDiet[d.id]).length;
 
   let deltaIcon = "minus", deltaColor = "var(--text-faint)";
   if (deltaWeek !== null) {
@@ -474,6 +532,41 @@ function renderDashboard() {
           }).join("")}
         </div>
         <div class="faint text-xs mt-3">Nei giorni liberi: camminata 20-30 min.</div>
+      </div>
+
+      <div class="card">
+        <div class="row mb-3">
+          <div class="flex gap-1"><i data-lucide="salad" style="width:14px;height:14px;color:var(--ember)"></i><span class="faint text-xs">Dieta questa settimana</span></div>
+          <span class="num text-sm" style="font-weight:600">${dietCompletedCount}/${DIET_PLAN.length}</span>
+        </div>
+        <div class="progress-track thin mb-3"><div class="progress-fill" style="width:${(dietCompletedCount / DIET_PLAN.length) * 100}%"></div></div>
+        <div class="col gap-2">
+          ${DIET_PLAN.map((day) => {
+            const done = !!currentWeekDiet[day.id];
+            const expanded = expandedDietDay === day.id;
+            return `
+              <div class="day-row ${done ? "done" : ""}">
+                <div class="day-row-head">
+                  <button class="btn-icon" style="padding:0;" data-action="toggle-diet-day" data-day="${day.id}" aria-label="Segna come seguito">
+                    <i data-lucide="${done ? "check-circle-2" : "circle"}" style="width:20px;height:20px;color:${done ? "var(--sage)" : "var(--text-faint)"}"></i>
+                  </button>
+                  <button class="flex-1 row" style="background:none;border:none;cursor:pointer;text-align:left;padding:0;" data-action="toggle-expand-diet-day" data-day="${day.id}">
+                    <div>
+                      <div class="text-sm" style="font-weight:500;color:${done ? "var(--sage)" : "var(--text)"}">${day.title}</div>
+                      ${day.subtitle ? `<div class="faint text-xs">${day.subtitle}</div>` : ""}
+                    </div>
+                    <i data-lucide="${expanded ? "chevron-up" : "chevron-down"}" style="width:16px;height:16px;color:var(--text-faint)"></i>
+                  </button>
+                </div>
+                ${expanded ? `
+                  <div class="day-row-exercises">
+                    ${day.meals.map((m) => `<div class="muted text-xs">${m}</div>`).join("")}
+                  </div>` : ""}
+              </div>
+            `;
+          }).join("")}
+        </div>
+        <div class="faint text-xs mt-3">Target ~1900-2100 kcal/die · proteine a ogni pasto.</div>
       </div>
 
       <div class="card">
@@ -618,6 +711,8 @@ document.addEventListener("click", (e) => {
     case "set-range": range = Number(t.dataset.value); render(); break;
     case "toggle-workout-day": toggleWorkoutDay(t.dataset.day); break;
     case "toggle-expand-day": expandedDay = expandedDay === t.dataset.day ? null : t.dataset.day; render(); break;
+    case "toggle-diet-day": toggleDietDay(t.dataset.day); break;
+    case "toggle-expand-diet-day": expandedDietDay = expandedDietDay === t.dataset.day ? null : t.dataset.day; render(); break;
   }
 });
 
